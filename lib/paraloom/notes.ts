@@ -1,3 +1,4 @@
+import { loadSession, saveSession } from "../storage/session";
 // Local record of the shielded notes this wallet has deposited. Until the
 // extension can scan the pool for its own notes (a viewing-key feature), the
 // shielded balance is tracked here: the sum of unspent deposits. Each note
@@ -34,12 +35,14 @@ const NOTES_KEY = "paraloom_notes"
 type NotesByAccount = Record<string, ShieldedNote[]>
 
 async function readAll(): Promise<NotesByAccount> {
-  const stored = await chrome.storage.local.get(NOTES_KEY)
-  return (stored[NOTES_KEY] as NotesByAccount) ?? {}
+  const session = await loadSession();
+  return (session?.notes as NotesByAccount) ?? {};
 }
 
 async function writeAll(all: NotesByAccount): Promise<void> {
-  await chrome.storage.local.set({ [NOTES_KEY]: all })
+  const session = await loadSession() || {} as any;
+  session.notes = all;
+  await saveSession(session);
 }
 
 export async function getNotes(account: string): Promise<ShieldedNote[]> {

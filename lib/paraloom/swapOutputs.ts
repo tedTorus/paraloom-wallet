@@ -1,3 +1,4 @@
+import { loadSession, saveSession } from "../storage/session";
 // Private swap-out outputs. A private swap leaves the bought token at a FRESH,
 // unlinkable address whose key the wallet generated. That key never leaves the
 // wallet, so it must be persisted here or the token would be unrecoverable.
@@ -31,17 +32,19 @@ const KEY = "paraloom_swap_outputs"
 // signature once the swap lands. Keyed on the address so the two writes collapse
 // to one row.
 export async function saveSwapOutput(output: SwapOutput): Promise<void> {
-  const stored = await chrome.storage.local.get(KEY)
-  const current = (stored[KEY] as SwapOutput[]) ?? []
+  const session = await loadSession();
+  const current = (session?.swapOutputs as SwapOutput[]) ?? [];
   const i = current.findIndex((o) => o.freshAddress === output.freshAddress)
   if (i >= 0) current[i] = { ...current[i], ...output }
   else current.push(output)
-  await chrome.storage.local.set({ [KEY]: current })
+  const session = await loadSession() || {} as any;
+  session.swapOutputs = current;
+  await saveSession(session);
 }
 
 export async function listSwapOutputs(): Promise<SwapOutput[]> {
-  const stored = await chrome.storage.local.get(KEY)
-  return (stored[KEY] as SwapOutput[]) ?? []
+  const session = await loadSession();
+  return (session?.swapOutputs as SwapOutput[]) ?? [];
 }
 
 // Drop a swap row by its fresh address. Used to clear a stale "pending" row the
@@ -49,8 +52,10 @@ export async function listSwapOutputs(): Promise<SwapOutput[]> {
 // swap either re-shielded into the pool or its input note was never spent), so
 // this only removes the misleading Activity entry, never any money.
 export async function dismissSwapOutput(freshAddress: string): Promise<void> {
-  const stored = await chrome.storage.local.get(KEY)
-  const current = (stored[KEY] as SwapOutput[]) ?? []
+  const session = await loadSession();
+  const current = (session?.swapOutputs as SwapOutput[]) ?? [];
   const next = current.filter((o) => o.freshAddress !== freshAddress)
-  await chrome.storage.local.set({ [KEY]: next })
+  const session = await loadSession() || {} as any;
+  session.swapOutputs = next;
+  await saveSession(session);
 }
